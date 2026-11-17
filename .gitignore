@@ -1,0 +1,28 @@
+# 依赖
+node_modules/
+
+# 打包产物：由 npm run build 生成，不跟着源码走
+dist/
+
+# 临时校验产物（esbuild 检查语法时输出的目录）
+.tmp-check/
+
+# 本地环境变量
+.env
+.env.local
+.env.*.local
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 日志
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Vite 缓存
+.vite/

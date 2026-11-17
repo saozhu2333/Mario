@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>小王的Mario</title>
+    <meta
+      name="description"
+      content="王师傅（Mario·王）的个人主页：以代码为笔，编织屏幕里的光影与交互，偏爱画布、动画与可视化。整站用一个可倒放的 3D 超级玛丽第一关承载，滚动条就是时间轴。"
+    />
+    <meta name="author" content="Mario·王" />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#070b14" />
+    <meta name="color-scheme" content="dark" />
+
+    <!-- 分享卡片：链接发到聊天软件 / 社交平台时的标题与摘要 -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="王师傅的主页" />
+    <meta property="og:title" content="王师傅的主页 · 前端工程师 Mario·王" />
+    <meta
+      property="og:description"
+      content="以代码为笔，编织屏幕里的光影与交互。整站是一关可以倒放的 3D 超级玛丽，滚动条就是时间轴。"
+    />
+    <meta property="og:locale" content="zh_CN" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="王师傅的主页 · 前端工程师 Mario·王" />
+    <meta
+      name="twitter:description"
+      content="以代码为笔，编织屏幕里的光影与交互。整站是一关可以倒放的 3D 超级玛丽。"
+    />
+
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+
+    <!-- 结构化数据：告诉搜索引擎这是个站点，以及作者是谁 -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "name": "王师傅的主页",
+            "inLanguage": "zh-CN",
+            "description": "王师傅（Mario·王）的个人主页，整站是一关可以倒放的 3D 超级玛丽。"
+          },
+          {
+            "@type": "Person",
+            "name": "Mario·王",
+            "alternateName": "王师傅",
+            "jobTitle": "前端工程师",
+            "description": "以代码为笔，编织屏幕里的光影与交互。偏爱画布、动画与可视化，在像素之间打磨细节。",
+            "sameAs": ["https://github.com/saozhu2333"]
+          }
+        ]
+      }
+    </script>
+    <link rel="stylesheet" href="/src/css/main.css" />
+  </head>
+  <body>
+    <!-- 加载提示：等待模型与首帧渲染完成后淡出 -->
+    <div id="loading" class="loading">
+      <div class="loading__box">
+        <div class="loading__coin" aria-hidden="true"></div>
+        <div
+          class="loading__bar"
+          role="progressbar"
+          aria-label="场景加载进度"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-valuenow="0"
+        >
+          <i></i><i></i><i></i><i></i><i></i><i></i>
+          <i></i><i></i><i></i><i></i><i></i><i></i>
+        </div>
+        <p class="loading__text">正在搭建 3D 世界… <span class="loading__percent">0%</span></p>
+      </div>
+    </div>
+
+    <!-- WebGL 画布：固定全屏，整页滚动就是走完这一关 -->
+    <canvas id="webgl"></canvas>
+
+    <!-- 站点导航：关卡名 + 按进度跳转的章节 -->
+    <header class="nav">
+      <a class="nav__brand" href="#top" data-seek="0">
+        <span class="nav__brick" aria-hidden="true"></span>
+        <span>主页</span>
+      </a>
+      <nav class="nav__links" aria-label="站内导航">
+        <a href="#about" data-seek="0.19">关于</a>
+        <a href="#flow-1" data-seek="0.36">流程1</a>
+        <a href="#flow-2" data-seek="0.52">再往前翻</a>
+        <a href="#bgm" data-seek="0.7">BGM</a>
+        <a href="#contact" data-seek="0.83">联系</a>
+      </nav>
+    </header>
+
+    <!-- 右上角进度 UI -->
+    <div class="ui">
+      <div class="ui__panel">
+        <div class="ui__bar"><span class="ui__fill" id="progress-fill"></span></div>
+        <div class="ui__meta">
+          <span class="ui__percent" id="progress-percent">0%</span>
+          <span class="ui__coins" id="coin-count">金币 0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 底部提示：开始滚动后淡出 -->
+    <div class="hint" id="hint">向下滚动，从起点跑到旗杆</div>
+
+    <!-- 滚动占位区：整页的滚动距离就是这一整关 -->
+    <div class="scroll-space" id="scroll-space"></div>
+
+    <!-- 场景内浮层：每块牌子挂在关卡的一段路上，跑到才浮现 -->
+    <div class="beats" id="beats">
+      <!-- 起点 -->
+      <section class="beat beat--hero" id="top" data-from="0" data-to="0.1">
+        <h1 class="hero__title">王师傅的主页</h1>
+        <p class="hero__lead">
+          我是 Mario·王，前端工程师。整页就是一关：从起点跑到旗杆，
+          途中经过的每一块牌子，都是我这段时间在折腾的东西。
+        </p>
+      </section>
+
+      <!-- 关于 -->
+      <section class="beat" id="about" data-3d data-style="block" data-from="0.14" data-to="0.295" aria-label="关于">
+        <h2 class="beat__title">关于</h2>
+        <div class="beat__text">
+          <p>以代码为笔，编织屏幕里的光影与交互。偏爱画布、动画与可视化，在像素之间打磨细节。</p>
+          <p>闲暇时漫步姑苏街巷，寻一碗热乎的菜饭骨头汤。</p>
+          <p>保持好奇，慢慢建造，把细碎想法，一一变成可触摸的网页。</p>
+        </div>
+      </section>
+
+      <!-- 文章（前两篇） -->
+      <section class="beat" id="flow-1" data-3d data-style="coin" data-from="0.31" data-to="0.465" aria-label="流程1">
+        <h2 class="beat__title">流程1</h2>
+        <p class="beat__note">点开就展开，不跳页。</p>
+
+        <details class="post">
+          <summary class="post__head">
+            <span class="post__title">让马里奥按位置跳，而不是按时间跳</span>
+            <span class="post__date">2026.11</span>
+          </summary>
+          <div class="post__body">
+            <p>
+              最早的跳跃是一段补间，落地判断用 <code>Math.max(地面, state.y)</code>——
+              而 <code>state.y</code> 是相对高度，脚底被算低了一截，人就从管道中间穿过去了。
+              现在跳跃高度是关于横坐标的解析抛物线，峰值由管道高度反推，倒着滚也自动精确。
+            </p>
+          </div>
+        </details>
+
+        <details class="post">
+          <summary class="post__head">
+            <span class="post__title">旗子必须自己滑下来</span>
+            <span class="post__date">2026.11</span>
+          </summary>
+          <div class="post__body">
+            <p>
+              关卡里旗杆、杆顶圆球和旗面是同一个 mesh。先把几何体烘焙到世界坐标，
+              再按三角形位置把伸向杆左侧的那几片拆出来，放进独立 Group，
+              终点时给它一条 <code>y</code> 补间。第一次把位移写反了符号，旗子直接飞上天。
+            </p>
+          </div>
+        </details>
+      </section>
+
+      <!-- 文章（后两篇） -->
+      <section class="beat" id="flow-2" data-3d data-style="pipe" data-from="0.47" data-to="0.625" aria-label="流程1 续">
+        <h2 class="beat__title">再往前翻</h2>
+
+        <details class="post">
+          <summary class="post__head">
+            <span class="post__title">199 KB 的 3D 首屏</span>
+            <span class="post__date">2026.10</span>
+          </summary>
+          <div class="post__body">
+            <p>
+              全部 JS 打成一块是 709 KB，gzip 后 199 KB，含 three 和 GSAP。
+              能压到这个数是因为渲染之外的东西都留在构建期：地形是加载时射线采样出的高度场，
+              管道位置是解析顶点聚类出来的，运行时不查任何数据结构。
+            </p>
+          </div>
+        </details>
+
+        <details class="post">
+          <summary class="post__head">
+            <span class="post__title">滚动条是唯一的时间轴</span>
+            <span class="post__date">2026.09</span>
+          </summary>
+          <div class="post__body">
+            <p>
+              整站只有一条 timeline，其余都是它的投影：角色位置、相机、金币消失、动画权重。
+              ScrollTrigger 用 <code>scrub</code> 把滚动接上去，于是往下滚和往回滚不需要两套逻辑，
+              这一整关的每一帧都可以倒着退回起点。
+            </p>
+          </div>
+        </details>
+      </section>
+
+      <!-- 现在：背景音乐播放器 -->
+      <section class="beat" id="bgm" data-3d data-style="brick" data-from="0.64" data-to="0.765" aria-label="BGM">
+        <h2 class="beat__title">BGM</h2>
+
+        <div class="player">
+          <button
+            class="player__toggle"
+            type="button"
+            data-bgm
+            aria-pressed="false"
+            aria-label="播放背景音乐"
+          >
+            <svg class="player__icon player__icon--play" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 5.2v13.6L19 12Z" fill="currentColor" />
+            </svg>
+            <svg class="player__icon player__icon--pause" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7 5h3.6v14H7Zm6.4 0H17v14h-3.6Z" fill="currentColor" />
+            </svg>
+          </button>
+
+          <div class="player__meta">
+            <p class="player__name">超级玛丽 · World 1-1</p>
+            <p class="player__hint">红白机音色，现场合成，循环播放。</p>
+          </div>
+
+          <div class="player__bars" aria-hidden="true">
+            <i></i><i></i><i></i><i></i>
+          </div>
+        </div>
+      </section>
+
+      <!-- 联系 -->
+      <section class="beat" id="contact" data-3d data-style="flag" data-from="0.78" data-to="0.89" aria-label="联系">
+        <h2 class="beat__title">联系</h2>
+        <p class="beat__note">四枚图标，点一下就把联系方式翻出来。不用寒暄，直接说事，我看到就回。</p>
+
+        <div class="contact-bar" role="group" aria-label="联系方式">
+          <button class="contact" type="button" data-contact="qq" aria-label="QQ" title="QQ" aria-expanded="false">
+            <svg class="contact__icon contact__icon--qq" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M21.395 15.035a40 40 0 0 0-.803-2.264l-1.079-2.695c.001-.032.014-.562.014-.836C19.526 4.632 17.351 0 12 0S4.474 4.632 4.474 9.241c0 .274.013.804.014.836l-1.08 2.695a39 39 0 0 0-.802 2.264c-1.021 3.283-.69 4.643-.438 4.673.54.065 2.103-2.472 2.103-2.472 0 1.469.756 3.387 2.394 4.771-.612.188-1.363.479-1.845.835-.434.32-.379.646-.301.778.343.578 5.883.369 7.482.189 1.6.18 7.14.389 7.483-.189.078-.132.132-.458-.301-.778-.483-.356-1.233-.646-1.846-.836 1.637-1.384 2.393-3.302 2.393-4.771 0 0 1.563 2.537 2.103 2.472.251-.03.581-1.39-.438-4.673"
+              />
+            </svg>
+          </button>
+
+          <button
+            class="contact"
+            type="button"
+            data-contact="wechat"
+            aria-label="微信"
+            title="微信"
+            aria-expanded="false"
+          >
+            <svg class="contact__icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M9.8 4.4c-3.5 0-6.3 2.3-6.3 5.2 0 1.6.9 3 2.3 3.9l-.6 2.1 2.4-1.1c.4.1.9.1 1.4.1h.6c-.2-.5-.3-1.1-.3-1.7 0-3 2.9-5.4 6.4-5.4h.4c-.7-1.8-2.9-3.1-5.7-3.1z"
+                fill="currentColor"
+              />
+              <path
+                d="M20.5 13c0-2.6-2.4-4.7-5.4-4.7S9.7 10.4 9.7 13s2.4 4.7 5.4 4.7c.5 0 1.1-.1 1.6-.2l2 1-.5-1.8c1.4-.8 2.3-2.2 2.3-3.7z"
+                fill="currentColor"
+                opacity=".55"
+              />
+              <circle cx="7.8" cy="9.1" r=".85" fill="#0d131d" />
+              <circle cx="11.7" cy="9.1" r=".85" fill="#0d131d" />
+              <circle cx="13.4" cy="12.7" r=".8" fill="#0d131d" />
+              <circle cx="17" cy="12.7" r=".8" fill="#0d131d" />
+            </svg>
+          </button>
+
+          <button
+            class="contact"
+            type="button"
+            data-contact="juejin"
+            aria-label="稀土掘金"
+            title="稀土掘金"
+            aria-expanded="false"
+          >
+            <svg class="contact__icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M12 3.4 20.3 10 12 16.6 3.7 10Z"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.7"
+                stroke-linejoin="round"
+              />
+              <path d="M12 7.9 16.1 11.3 12 14.7 7.9 11.3Z" fill="currentColor" />
+            </svg>
+          </button>
+
+          <button
+            class="contact"
+            type="button"
+            data-contact="github"
+            aria-label="GitHub"
+            title="GitHub"
+            aria-expanded="false"
+          >
+            <svg class="contact__icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <div class="contact-detail" data-contact-detail aria-live="polite">
+          <span class="contact-detail__hint">点一个图标，明细就出来。</span>
+        </div>
+      </section>
+
+      <!-- 终点：旗杆脚下 -->
+      <section class="beat beat--finale" data-from="0.9" data-to="1" aria-label="关卡结算">
+        <p class="finale__label">结束了~</p>
+        <div class="finale__stats">
+          <div class="finale__stat">
+            <span class="finale__k">金币</span>
+            <span class="finale__v" id="tally-coins">—</span>
+          </div>
+          <div class="finale__stat">
+            <span class="finale__k">用时</span>
+            <span class="finale__v" id="tally-time">—</span>
+          </div>
+          <div class="finale__stat">
+            <span class="finale__k">关卡</span>
+            <span class="finale__v">1-1</span>
+          </div>
+        </div>
+        <p class="finale__note">旗子落到了杆底，页面也到头了。往回滚，这一关会原样倒放。</p>
+
+        <button class="finale__again" type="button" data-restart>再玩一次</button>
+
+        <div class="finale__foot">
+          <p class="finale__copy">© 2026 Mario · 王 的独立小站</p>
+          <div class="legal">
+            <a
+              class="legal__link"
+              href="https://beian.miit.gov.cn/"
+              target="_blank"
+              rel="noopener"
+            >冀ICP备19022440号-1</a>
+            <a
+              class="legal__link legal__link--police"
+              href="https://beian.mps.gov.cn/#/query/webSearch?code=13112702000419"
+              target="_blank"
+              rel="noopener"
+            >
+              <svg class="legal__badge" viewBox="0 0 16 16" aria-hidden="true">
+                <path
+                  d="M8 1.3 2.7 3.1v5c0 3 2.2 5.3 5.3 6.6 3.1-1.3 5.3-3.6 5.3-6.6v-5L8 1.3Z"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.1"
+                />
+                <path
+                  d="m5.6 7.9 1.7 1.7 3.1-3.4"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.1"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+              冀公网安备13112702000419号
+            </a>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script type="module" src="/src/js/main.js"></script>
+  </body>
+</html>

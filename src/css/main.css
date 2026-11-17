@@ -1,0 +1,1076 @@
+/* ==========================================================================
+   W1-1 个人博客
+   整页滚动 = 走完一关：页面顶部是关卡起点，页面底部是旗杆终点。
+   正文不做成页面下半场，而是作为立在跑道边的牌子，跑到对应路段才浮现。
+   ========================================================================== */
+
+:root {
+  --ink: #070b14;
+  --line: rgba(255, 255, 255, 0.12);
+  --line-strong: rgba(255, 255, 255, 0.22);
+  --text: rgba(255, 255, 255, 0.9);
+  --muted: rgba(255, 255, 255, 0.62);
+  --red: #ff4a3d;
+  --yellow: #ffc93c;
+  --sky: #6fb8ff;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  /* 滚动条藏起来：整页就是一条进度条，右侧再挂一根会重复 */
+  scrollbar-width: none;
+}
+
+html::-webkit-scrollbar {
+  display: none;
+}
+
+html,
+body {
+  width: 100%;
+  background: var(--ink);
+  color: #ffffff;
+  font-family: 'Segoe UI', system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  overflow-x: hidden;
+}
+
+a,
+summary {
+  -webkit-tap-highlight-color: transparent;
+}
+
+a:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* WebGL 画布固定全屏，滚动条位置只用于驱动这一关 */
+#webgl {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 0;
+  outline: none;
+}
+
+/* 滚动占位：这段高度就是整关的滚动距离（页面顶 = 起点，页面底 = 旗杆） */
+.scroll-space {
+  position: relative;
+  width: 100%;
+  height: 1400vh;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* ------------------------------ 加载提示 ------------------------------ */
+.loading {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 40%, #16233d 0%, var(--ink) 70%);
+  transition: opacity 0.6s ease, visibility 0.6s ease;
+}
+
+.loading.is-hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.loading__box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+}
+
+/* 金币：翻面转起来，就是红白机里吃金币的那一下 */
+.loading__coin {
+  position: relative;
+  width: 36px;
+  height: 46px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #ffe89a 0%, var(--yellow) 45%, #d09512 100%);
+  box-shadow:
+    inset 0 0 0 3px rgba(120, 76, 0, 0.5),
+    0 0 24px rgba(255, 201, 60, 0.18);
+  animation: coin-flip 1.6s linear infinite;
+}
+
+.loading__coin::before {
+  content: '';
+  position: absolute;
+  inset: 8px 14px;
+  border-radius: 4px;
+  background: rgba(120, 76, 0, 0.4);
+}
+
+@keyframes coin-flip {
+  0% {
+    transform: perspective(220px) rotateY(0deg);
+  }
+  50% {
+    transform: perspective(220px) rotateY(180deg);
+  }
+  100% {
+    transform: perspective(220px) rotateY(360deg);
+  }
+}
+
+/* 进度：一排砖，加载到哪就砌到哪 */
+.loading__bar {
+  display: flex;
+  gap: 5px;
+  width: 280px;
+}
+
+.loading__bar i {
+  flex: 1;
+  height: 18px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.loading__bar i.is-on {
+  background: linear-gradient(180deg, #ffdd7c 0%, var(--yellow) 58%, #dfa017 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(90, 55, 0, 0.45),
+    inset 0 -3px 0 rgba(120, 78, 0, 0.35);
+}
+
+.loading__text {
+  font-size: 14px;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.loading__percent {
+  margin-left: 6px;
+  font-variant-numeric: tabular-nums;
+  color: var(--yellow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading__coin {
+    animation: none;
+  }
+}
+
+/* ------------------------------ 站点导航 ------------------------------ */
+.nav {
+  position: fixed;
+  top: 26px;
+  left: 26px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 9px 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  background: rgba(10, 16, 28, 0.55);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(10px);
+}
+
+.nav__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #ffffff;
+  text-decoration: none;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+}
+
+.nav__brick {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--red);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+.nav__links {
+  display: flex;
+  gap: 18px;
+}
+
+.nav__links a {
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.2s var(--ease);
+}
+
+.nav__links a:hover,
+.nav__links a:focus-visible {
+  color: var(--yellow);
+}
+
+/* ------------------------------ 进度 UI ------------------------------ */
+.ui {
+  position: fixed;
+  top: 26px;
+  right: 26px;
+  z-index: 20;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.ui.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.ui__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: rgba(10, 16, 28, 0.55);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.ui__bar {
+  width: 200px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  overflow: hidden;
+}
+
+.ui__fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--red) 0%, var(--yellow) 100%);
+  transform: scaleX(0);
+  transform-origin: left center;
+  will-change: transform;
+}
+
+.ui__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.ui__percent {
+  font-weight: 600;
+  color: var(--yellow);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------ 底部提示 ------------------------------ */
+.hint {
+  position: fixed;
+  left: 50%;
+  bottom: 46px;
+  z-index: 20;
+  transform: translateX(-50%);
+  padding: 10px 20px;
+  border-radius: 999px;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(10, 16, 28, 0.55);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(10px);
+  pointer-events: none;
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+
+.hint.is-hidden {
+  opacity: 0;
+  transform: translate(-50%, 12px);
+}
+
+/* ------------------------------ 场景内牌子 ------------------------------ */
+.beats {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+
+/*
+ * 每块牌子挂在关卡的一段路上：跑进这段路时淡入，跑出去时淡出。
+ * 半透明玻璃底 + 极细描边，保证在明亮的天空和地面上都读得清，
+ * 又不至于像一张贴在游戏截图上的卡片。
+ */
+.beat {
+  position: absolute;
+  right: clamp(20px, 6vw, 104px);
+  bottom: clamp(64px, 12vh, 120px);
+  width: min(440px, calc(100vw - 40px));
+  padding: 22px 24px 24px;
+  border-radius: 16px;
+  background: rgba(8, 12, 20, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(18px) saturate(1.15);
+  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  visibility: hidden;
+  will-change: opacity, transform;
+  transform-origin: right bottom;
+}
+
+.beat__title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* 红色小方块：与导航的关卡标记同一套符号 */
+.beat__title::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--red);
+  flex: none;
+}
+
+.beat__note {
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.beat__text {
+  display: grid;
+  gap: 0.7em;
+  margin-top: 12px;
+  font-size: 14.5px;
+  line-height: 1.9;
+  color: rgba(255, 255, 255, 0.84);
+}
+
+.beat__text code,
+.post__body code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  color: var(--sky);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* 起点：不提牌子，直接把标题压在场景上 */
+.beat--hero {
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  padding: clamp(88px, 14vh, 150px) clamp(24px, 8vw, 132px) 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 24px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  transform-origin: center;
+}
+
+/* 左侧压一层墨色渐晕，保证标题在明亮天空上也读得清 */
+.beat--hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(
+    74% 64% at 18% 46%,
+    rgba(7, 11, 20, 0.82) 0%,
+    rgba(7, 11, 20, 0.46) 44%,
+    rgba(7, 11, 20, 0) 74%
+  );
+}
+
+.hero__title {
+  font-size: clamp(38px, 7vw, 92px);
+  line-height: 0.98;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  color: #ffffff;
+}
+
+.hero__lead {
+  max-width: 30em;
+  font-size: clamp(15px, 1.35vw, 17px);
+  line-height: 1.9;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+/* 文章：细线分隔的行，就地展开 */
+.post {
+  margin-top: 6px;
+  border-top: 1px solid var(--line);
+}
+
+.post:last-of-type {
+  border-bottom: 1px solid var(--line);
+}
+
+.post__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 11px 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.post__head::-webkit-details-marker {
+  display: none;
+}
+
+.post__title {
+  font-size: 14.8px;
+  font-weight: 600;
+  color: var(--text);
+  transition: color 0.25s var(--ease);
+}
+
+.post__head:hover .post__title {
+  color: var(--yellow);
+}
+
+.post__date {
+  flex: none;
+  font-size: 11.5px;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.post__body {
+  padding: 2px 0 14px;
+  font-size: 13.6px;
+  line-height: 1.85;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+/* 现在：背景音乐播放器 */
+.player {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.player__toggle {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--yellow);
+  color: #2a1a00;
+  cursor: pointer;
+  box-shadow: inset 0 -4px 0 rgba(140, 92, 0, 0.4), 0 8px 18px rgba(0, 0, 0, 0.35);
+  transition: transform 0.18s ease, filter 0.18s ease;
+}
+
+.player__toggle:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+}
+
+.player__toggle:active {
+  transform: translateY(1px);
+}
+
+.player__toggle:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+
+.player__icon {
+  width: 24px;
+  height: 24px;
+}
+
+.player__icon--pause {
+  display: none;
+}
+
+.player.is-playing .player__icon--play {
+  display: none;
+}
+
+.player.is-playing .player__icon--pause {
+  display: block;
+}
+
+.player__meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.player__name {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.player__hint {
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* 播放时跳动的四根小电平条 */
+.player__bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 18px;
+}
+
+.player__bars i {
+  width: 3px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--yellow);
+  opacity: 0.4;
+}
+
+.player.is-playing .player__bars i {
+  opacity: 1;
+  animation: player-bar 0.7s ease-in-out infinite alternate;
+}
+
+.player.is-playing .player__bars i:nth-child(2) {
+  animation-delay: 0.18s;
+}
+
+.player.is-playing .player__bars i:nth-child(3) {
+  animation-delay: 0.36s;
+}
+
+.player.is-playing .player__bars i:nth-child(4) {
+  animation-delay: 0.54s;
+}
+
+@keyframes player-bar {
+  from {
+    height: 4px;
+  }
+  to {
+    height: 18px;
+  }
+}
+
+/* 联系：四枚图标，点开才给明细 */
+.contact-bar {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.contact {
+  --c: #7fd3ff;
+  --tint: rgba(127, 211, 255, 0.12);
+  --edge: rgba(127, 211, 255, 0.34);
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border-radius: 12px;
+  color: var(--c);
+  background: var(--tint);
+  border: 1px solid var(--edge);
+  cursor: pointer;
+  transition: transform 0.22s var(--ease), box-shadow 0.22s var(--ease),
+    background-color 0.22s var(--ease), border-color 0.22s var(--ease);
+}
+
+.contact[data-contact='qq'] {
+  --c: #46c6ff;
+  --tint: rgba(70, 198, 255, 0.12);
+  --edge: rgba(70, 198, 255, 0.36);
+}
+
+.contact[data-contact='wechat'] {
+  --c: #4ddc6b;
+  --tint: rgba(77, 220, 107, 0.12);
+  --edge: rgba(77, 220, 107, 0.36);
+}
+
+.contact[data-contact='juejin'] {
+  --c: #6b9dff;
+  --tint: rgba(107, 157, 255, 0.12);
+  --edge: rgba(107, 157, 255, 0.36);
+}
+
+.contact[data-contact='github'] {
+  --c: #e9eef8;
+  --tint: rgba(233, 238, 248, 0.1);
+  --edge: rgba(233, 238, 248, 0.32);
+}
+
+.contact:hover {
+  transform: translateY(-2px);
+  background: var(--edge);
+  border-color: var(--c);
+}
+
+.contact.is-active {
+  border-color: var(--c);
+  box-shadow: 0 0 0 1px var(--c), 0 8px 22px rgba(0, 0, 0, 0.35);
+}
+
+.contact:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 3px;
+}
+
+.contact__icon {
+  display: block;
+  width: 23px;
+  height: 23px;
+}
+
+.contact-detail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  min-height: 42px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 14px;
+}
+
+.contact-detail__hint {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.contact-detail__k {
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.contact-detail__v {
+  font-size: 15px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  user-select: text;
+}
+
+a.contact-detail__v {
+  color: var(--yellow);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255, 201, 60, 0.32);
+  padding-bottom: 1px;
+  word-break: break-all;
+  transition: border-color 0.25s var(--ease);
+}
+
+a.contact-detail__v:hover {
+  border-bottom-color: var(--yellow);
+}
+
+/* ------------------------------ 终点结算 ------------------------------ */
+/* 终点：卡片挂在右上角的天空区域，把左侧整根旗杆和下滑的旗面让出来 */
+.beat--finale {
+  left: auto;
+  right: clamp(20px, 6vw, 104px);
+  top: clamp(92px, 15vh, 150px);
+  bottom: auto;
+  width: min(420px, calc(100vw - 40px));
+  padding: 24px 26px 20px;
+  background: rgba(8, 12, 20, 0.85);
+}
+
+.finale__label {
+  font-size: clamp(24px, 3.4vw, 34px);
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: #ffffff;
+}
+
+.finale__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px clamp(24px, 5vw, 56px);
+  margin-top: 20px;
+}
+
+.finale__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 76px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-strong);
+}
+
+.finale__k {
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.finale__v {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--yellow);
+  font-variant-numeric: tabular-nums;
+}
+
+.finale__note {
+  margin-top: 20px;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--muted);
+}
+
+/*
+ * 终点唯一的动作：把这一关重跑一遍。
+ * 用关卡里最亮的那块黄做按钮，底边压一道深色内阴影，
+ * 像一块被按下去的砖，和上面的数字用同一套颜色，不另立一套视觉。
+ */
+.finale__again {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 20px;
+  padding: 11px 24px 13px;
+  border: 0;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #1a1206;
+  background: var(--yellow);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5),
+    inset 0 -4px 0 rgba(140, 92, 0, 0.4), 0 10px 24px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition: transform 0.16s var(--ease), box-shadow 0.16s var(--ease),
+    background-color 0.16s var(--ease);
+}
+
+.finale__again:hover {
+  background: #ffd45e;
+  transform: translateY(-2px);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6),
+    inset 0 -4px 0 rgba(140, 92, 0, 0.4), 0 16px 30px rgba(0, 0, 0, 0.4);
+}
+
+.finale__again:active {
+  transform: translateY(1px);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4),
+    inset 0 -2px 0 rgba(140, 92, 0, 0.4), 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+.finale__again:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 3px;
+}
+
+.finale__foot {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 8px;
+}
+
+.finale__copy {
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+/* 备案信息：工信部与公安部要求常驻可见、可点击 */
+.legal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 16px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.legal__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: inherit;
+  text-decoration: none;
+  font-variant-numeric: tabular-nums;
+  transition: color 0.25s var(--ease);
+}
+
+/* 两个备案号分属工信部与公安部两套系统，用一道细线区分归属 */
+.legal__link--police {
+  padding-left: 12px;
+  border-left: 1px solid var(--line);
+}
+
+.legal__link:hover,
+.legal__link:focus-visible {
+  color: var(--yellow);
+}
+
+.legal__badge {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  opacity: 0.72;
+}
+
+.legal__link:hover .legal__badge,
+.legal__link:focus-visible .legal__badge {
+  opacity: 1;
+}
+
+/* ------------------------------ 小屏 ------------------------------ */
+@media (max-width: 640px) {
+  .nav {
+    top: 14px;
+    left: 14px;
+    gap: 14px;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  .nav__links {
+    gap: 10px;
+  }
+
+  .ui {
+    top: 14px;
+    right: 14px;
+  }
+
+  .ui__bar {
+    width: 96px;
+  }
+
+  .ui__panel {
+    padding: 10px 12px;
+  }
+
+  .hint {
+    bottom: 20px;
+    font-size: 12px;
+  }
+
+  .beat {
+    left: 14px;
+    right: 14px;
+    bottom: 68px;
+    width: auto;
+    padding: 18px 18px 20px;
+    border-radius: 14px;
+  }
+
+  .beat--hero {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 96px 20px 0;
+  }
+
+  .beat__title {
+    font-size: 18px;
+  }
+
+  .beat__text {
+    font-size: 14px;
+  }
+
+  .beat--finale {
+    left: 14px;
+    right: 14px;
+    top: 82px;
+    bottom: auto;
+    width: auto;
+    padding: 20px 18px 16px;
+  }
+}
+
+/* ==========================================================================
+   CSS3D 层：中间几块正文牌子真正立在 three 场景里
+   牌子钉在跑道上，会被相机甩出画面；位置与尺寸由 WebGL 相机每帧写入外层。
+   这里只负责「卡片 + 道具」的长相，以及道具式出场 / 离场所需的那一点透视。
+   ========================================================================== */
+.stage3d {
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* 外层完全透明，只当舞台；CSS3DRenderer 会用 translate(-50%,-50%) 居中它 */
+.beat--stage {
+  left: 0;
+  top: 0;
+  right: auto;
+  bottom: auto;
+  width: 420px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  opacity: 1;
+  visibility: visible;
+  will-change: auto;
+  pointer-events: auto;
+  transform-origin: center center;
+}
+
+/*
+ * 动作层：入场 / 离场都写在这一层的 transform 上，
+ * 卡片因此可以被顶出来、被压回去、被风吹走。
+ * 原点放在底部中间——缩放时像被按在地上，旋转又是绕中轴翻面。
+ */
+.beat__rig {
+  position: relative;
+  transform-origin: 50% 100%;
+  will-change: transform, opacity;
+}
+
+/* 卡片本体：一块深色实底牌 */
+.beat__card {
+  position: relative;
+  padding: 20px 22px 20px;
+  border-radius: 10px;
+  background: #0d131d;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 22px 50px rgba(6, 10, 18, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/*
+ * 五块牌子的框各不相同：宽度、圆角、强调色分别取自这一关的砖、金币、水管、砖块、旗子。
+ * 不再挂道具，靠牌框本身和各自的出入场动作区分，不会像同一个弹窗弹五次。
+ */
+.beat--block {
+  width: 392px;
+}
+
+.beat--block .beat__card {
+  border-radius: 4px;
+  border: 2px solid rgba(255, 187, 46, 0.72);
+  box-shadow: 0 22px 50px rgba(6, 10, 18, 0.55), inset 0 0 0 1px rgba(255, 187, 46, 0.1);
+}
+
+.beat--coin {
+  width: 436px;
+}
+
+.beat--coin .beat__card {
+  border-radius: 22px;
+  border: 1px solid rgba(255, 210, 87, 0.5);
+  box-shadow: 0 22px 50px rgba(6, 10, 18, 0.55), inset 0 2px 0 rgba(255, 210, 87, 0.55);
+}
+
+.beat--pipe {
+  width: 364px;
+}
+
+/* 左边一道绿管壁，右上角收成管口 */
+.beat--pipe .beat__card {
+  padding-left: 16px;
+  border-radius: 6px 18px 6px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-left: 6px solid #2fb355;
+}
+
+.beat--brick {
+  width: 380px;
+}
+
+/* 顶上一条砖面 */
+.beat--brick .beat__card {
+  border-radius: 3px;
+  border: 1px solid rgba(226, 100, 58, 0.6);
+  box-shadow: 0 22px 50px rgba(6, 10, 18, 0.55), inset 0 7px 0 rgba(226, 100, 58, 0.2);
+}
+
+.beat--flag {
+  width: 348px;
+}
+
+/* 左上角挑一面小旗；卡片不再整体倾斜——斜着渲染的正文会被重采样，字会发糊 */
+.beat--flag .beat__card {
+  border-radius: 16px 16px 16px 2px;
+  border: 1px solid rgba(255, 90, 74, 0.5);
+}
+
+.beat--flag .beat__card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 22px;
+  border-left: 9px solid transparent;
+  border-right: 9px solid transparent;
+  border-top: 12px solid #ff5a4a;
+}
+
+@media (max-width: 640px) {
+  /* 窄屏统一按 330px 排版，JS 里也按这个宽度换算，文字才不会缩 */
+  .beat--stage,
+  .beat--block,
+  .beat--coin,
+  .beat--pipe,
+  .beat--brick,
+  .beat--flag {
+    width: 330px;
+  }
+
+  .beat__card {
+    padding: 17px 17px 18px;
+  }
+
+  .beat--pipe .beat__card {
+    padding-left: 13px;
+  }
+}
